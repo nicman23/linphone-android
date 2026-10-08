@@ -336,6 +336,14 @@ class CoreContext
             )
             when (currentState) {
                 Call.State.IncomingReceived -> {
+                    // When the app is on screen Android only shows the full-screen call notification as a
+                    // heads-up banner, so open the incoming call screen ourselves
+                    if (!corePreferences.autoAnswerEnabled && activityMonitor.isInForeground()) {
+                        Log.i("$TAG App is in foreground, showing incoming call screen")
+                        postOnMainThread {
+                            showCallActivity()
+                        }
+                    }
                     if (corePreferences.autoAnswerEnabled) {
                         val autoAnswerDelay = corePreferences.autoAnswerDelay
                         if (autoAnswerDelay == 0) {

@@ -76,6 +76,8 @@ import org.linphone.ui.call.viewmodel.CurrentCallViewModel
 import org.linphone.ui.call.viewmodel.SharedCallViewModel
 import org.linphone.ui.main.MainActivity
 import org.linphone.utils.AppUtils
+import androidx.navigation.fragment.NavHostFragment
+import org.linphone.ui.call.fragment.ActiveCallFragment
 
 @UiThread
 class CallActivity : GenericActivity() {
@@ -554,6 +556,28 @@ class CallActivity : GenericActivity() {
             }
         }
         return true
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // search active fragment in call_nav_container
+        val navHostFragment =
+            supportFragmentManager.findFragmentById(R.id.call_nav_container) as? NavHostFragment
+
+        val activeCallFragment = navHostFragment
+            ?.childFragmentManager
+            ?.fragments
+            ?.filterIsInstance<ActiveCallFragment>()
+            ?.firstOrNull { it.isVisible }
+
+        if (activeCallFragment != null) {
+            // forward keys to ActiveCallFragment, which has the chance to consume it
+            if (activeCallFragment.handleHardwareDialpadKeyEvent(event)) {
+                return true // event consumed
+            }
+        }
+
+        // forward not consumed keys
+        return super.dispatchKeyEvent(event)
     }
 
     fun goToMainActivity() {

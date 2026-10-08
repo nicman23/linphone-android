@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_pressed="true"
-        android:drawable="@drawable/shape_squircle_numpad_pressed_background" />
-    <item android:state_hovered="true"
-        android:drawable="@drawable/shape_squircle_numpad_pressed_background" />
-    <item
-        android:drawable="@drawable/shape_squircle_numpad_background" />
-</selector>
+<!-- Inset so the button's touch area also covers the visual gap around it -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:inset="@dimen/numpad_button_touch_inset">
+    <selector>
+        <item android:state_pressed="true"
+            android:drawable="@drawable/shape_squircle_numpad_pressed_background" />
+        <item android:state_hovered="true"
+            android:drawable="@drawable/shape_squircle_numpad_pressed_background" />
+        <item
+            android:drawable="@drawable/shape_squircle_numpad_background" />
+    </selector>
+</inset>

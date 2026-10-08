@@ -21,11 +21,18 @@ package org.linphone.ui.main.fragment
 
 import android.os.Bundle
 import android.view.View
+import androidx.annotation.IdRes
 import androidx.annotation.UiThread
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModelProvider
+import androidx.navigation.NavOptions
+import androidx.navigation.fragment.findNavController
+import org.linphone.R
 import org.linphone.core.tools.Log
 import org.linphone.ui.GenericFragment
+import org.linphone.ui.main.viewmodel.AbstractMainViewModel
 import org.linphone.ui.main.viewmodel.SharedMainViewModel
+import org.linphone.utils.Event
 
 @UiThread
 abstract class GenericMainFragment : GenericFragment() {
@@ -35,11 +42,65 @@ abstract class GenericMainFragment : GenericFragment() {
 
     protected lateinit var sharedViewModel: SharedMainViewModel
 
+    private var currentTabId: Int = 0
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
         sharedViewModel = requireActivity().run {
             ViewModelProvider(this)[SharedMainViewModel::class.java]
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        if (currentTabId > 0) {
+            sharedViewModel.currentlyDisplayedFragment.value = currentTabId
+        }
+    }
+
+    // Wires the bottom navigation bar of a "tab" fragment (Contacts, Calls, History, Meetings)
+    protected fun initTabNavigation(navViewModel: AbstractMainViewModel, @IdRes tabId: Int) {
+        currentTabId = tabId
+
+        val destinations = listOf<Pair<MutableLiveData<Event<Boolean>>, Int>>(
+            navViewModel.navigateToContactsEvent to R.id.contactsListFragment,
+            navViewModel.navigateToStartCallEvent to R.id.startCallFragment,
+            navViewModel.navigateToHistoryEvent to R.id.historyListFragment,
+            navViewModel.navigateToConversationsEvent to R.id.conversationsListFragment,
+            navViewModel.navigateToMeetingsEvent to R.id.meetingsListFragment,
+            sharedViewModel.navigateToContactsEvent to R.id.contactsListFragment,
+            sharedViewModel.navigateToHistoryEvent to R.id.historyListFragment,
+            sharedViewModel.navigateToConversationsEvent to R.id.conversationsListFragment,
+            sharedViewModel.navigateToMeetingsEvent to R.id.meetingsListFragment
+        )
+        for ((event, destination) in destinations) {
+            event.observe(viewLifecycleOwner) {
+                it.consume { goToTab(destination) }
+            }
+        }
+
+        sharedViewModel.currentlyDisplayedFragment.observe(viewLifecycleOwner) {
+            navViewModel.contactsSelected.value = it == R.id.contactsListFragment
+            navViewModel.callsSelected.value = it == R.id.startCallFragment
+            navViewModel.historySelected.value = it == R.id.historyListFragment
+            navViewModel.meetingsSelected.value = it == R.id.meetingsListFragment
+        }
+    }
+
+    private fun goToTab(@IdRes destination: Int) {
+        if (destination == currentTabId) return
+
+        Log.i("$TAG Leaving tab [$currentTabId] for [$destination]")
+        try {
+            val navOptions = NavOptions.Builder()
+                .setPopUpTo(currentTabId, true)
+                .setLaunchSingleTop(true)
+                .build()
+            findNavController().navigate(destination, null, navOptions)
+        } catch (e: Exception) {
+            Log.e("$TAG Failed to navigate: $e")
         }
     }
 

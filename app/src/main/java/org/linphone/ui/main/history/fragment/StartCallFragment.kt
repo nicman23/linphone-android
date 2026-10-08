@@ -20,6 +20,7 @@
 package org.linphone.ui.main.history.fragment
 
 import android.annotation.SuppressLint
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -27,7 +28,10 @@ import android.view.ViewGroup
 import androidx.activity.OnBackPressedCallback
 import androidx.annotation.UiThread
 import androidx.core.view.doOnPreDraw
+import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
+import androidx.navigation.NavOptions
+import androidx.navigation.fragment.findNavController
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import org.linphone.LinphoneApplication.Companion.coreContext
 import org.linphone.LinphoneApplication.Companion.corePreferences
@@ -35,9 +39,11 @@ import org.linphone.R
 import org.linphone.core.tools.Log
 import org.linphone.databinding.StartCallFragmentBinding
 import org.linphone.ui.GenericActivity
+import org.linphone.ui.main.MainActivity
 import org.linphone.ui.main.fragment.GenericAddressPickerFragment
 import org.linphone.ui.main.history.viewmodel.StartCallViewModel
 import org.linphone.ui.main.model.GroupSetOrEditSubjectDialogModel
+import org.linphone.ui.main.viewmodel.AbstractMainViewModel
 import org.linphone.utils.DialogUtils
 import org.linphone.utils.addCharacterAtPosition
 import org.linphone.utils.hideKeyboard
@@ -105,10 +111,20 @@ class StartCallFragment : GenericAddressPickerFragment() {
         binding.viewModel = viewModel
         observeToastEvents(viewModel)
 
+        // This fragment is the "Calls" tab of the bottom nav bar
+        val navViewModel = ViewModelProvider(this)[AbstractMainViewModel::class.java]
+        binding.navViewModel = navViewModel
+        binding.bottomNavBar.root.visibility = View.VISIBLE
+        initTabNavigation(navViewModel, R.id.startCallFragment)
+
+        navViewModel.openDrawerMenuEvent.observe(viewLifecycleOwner) {
+            it.consume {
+                (requireActivity() as MainActivity).toggleDrawerMenu()
+            }
+        }
+
         binding.setBackClickListener {
-            // If back button from UI was clicked, go back even if numpad is opened
-            backPressedCallback.isEnabled = false
-            goBack()
+            navViewModel.openDrawerMenu()
         }
 
         binding.setHideNumpadClickListener {
@@ -137,10 +153,17 @@ class StartCallFragment : GenericAddressPickerFragment() {
 
         viewModel.leaveFragmentEvent.observe(viewLifecycleOwner) {
             it.consume {
-                // Post on main thread to allow for main activity to be resumed
+                // We are a tab, can't go back: reset the screen instead (search, group call selection)
                 coreContext.postOnMainThread {
-                    Log.i("$TAG Going back")
-                    goBack()
+                    Log.i("$TAG Call started, resetting start call tab")
+                    try {
+                        val navOptions = NavOptions.Builder()
+                            .setPopUpTo(R.id.startCallFragment, true)
+                            .build()
+                        findNavController().navigate(R.id.startCallFragment, null, navOptions)
+                    } catch (e: Exception) {
+                        Log.e("$TAG Failed to reset start call tab: $e")
+                    }
                 }
             }
         }
@@ -197,6 +220,8 @@ class StartCallFragment : GenericAddressPickerFragment() {
             if (keyboardVisible) {
                 viewModel.isNumpadVisible.value = false
             }
+            val portraitOrientation = resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE
+            binding.bottomNavBar.root.isVisible = !portraitOrientation || !keyboardVisible
         }
 
         requireActivity().onBackPressedDispatcher.addCallback(

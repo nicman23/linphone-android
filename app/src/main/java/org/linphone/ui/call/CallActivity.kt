@@ -20,7 +20,10 @@
 package org.linphone.ui.call
 
 import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.graphics.Color
@@ -34,6 +37,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.UiThread
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -84,6 +88,18 @@ class CallActivity : GenericActivity() {
     private lateinit var sharedViewModel: SharedCallViewModel
     private lateinit var callsViewModel: CallsViewModel
     private lateinit var callViewModel: CurrentCallViewModel
+
+    // Power button declines an incoming call. Apps never receive the power key itself, but this
+    // activity keeps the screen on and the proximity sensor is off while ringing, so the screen
+    // turning off while the incoming call screen is shown means power was pressed.
+    private val screenOffReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (isIncomingCallDisplayed()) {
+                Log.i("$TAG Screen turned off (power button) while incoming call is displayed, declining it")
+                callViewModel.hangUp()
+            }
+        }
+    }
 
     private var bottomSheetDialog: BottomSheetDialogFragment? = null
 
@@ -180,6 +196,13 @@ class CallActivity : GenericActivity() {
             ViewModelProvider(this)[CurrentCallViewModel::class.java]
         }
         binding.callViewModel = callViewModel
+
+        ContextCompat.registerReceiver(
+            this,
+            screenOffReceiver,
+            IntentFilter(Intent.ACTION_SCREEN_OFF),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
 
         callsViewModel = run {
             ViewModelProvider(this)[CallsViewModel::class.java]
@@ -419,6 +442,7 @@ class CallActivity : GenericActivity() {
     }
 
     override fun onDestroy() {
+        unregisterReceiver(screenOffReceiver)
         coreContext.enableProximitySensor(false)
 
         super.onDestroy()
@@ -485,6 +509,32 @@ class CallActivity : GenericActivity() {
         )
         data?.add(keyboardShortcutGroup)
         Log.i("$TAG Incoming call answer/decline shortcuts added")
+    }
+
+    // Volume up/down answers an incoming call. Android swallows the key-down while a call is ringing
+    // (it means "silence ringer"), but the key-up still reaches us, so answer on release.
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (isVolumeKey(keyCode) && isIncomingCallDisplayed()) return true
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (isVolumeKey(keyCode) && isIncomingCallDisplayed()) {
+            if (!event.isCanceled) {
+                Log.i("$TAG Volume key released while incoming call is displayed, answering it")
+                callViewModel.answer()
+            }
+            return true
+        }
+        return super.onKeyUp(keyCode, event)
+    }
+
+    private fun isVolumeKey(keyCode: Int): Boolean {
+        return keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
+    }
+
+    private fun isIncomingCallDisplayed(): Boolean {
+        return findNavController(R.id.call_nav_container).currentDestination?.id == R.id.incomingCallFragment
     }
 
     override fun onKeyShortcut(keyCode: Int, event: KeyEvent?): Boolean {

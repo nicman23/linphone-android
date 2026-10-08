@@ -30,8 +30,6 @@ import androidx.activity.OnBackPressedCallback
 import androidx.annotation.IdRes
 import androidx.annotation.UiThread
 import androidx.core.view.doOnPreDraw
-import androidx.navigation.NavDirections
-import androidx.navigation.fragment.findNavController
 import androidx.slidingpanelayout.widget.SlidingPaneLayout
 import com.google.android.material.textfield.TextInputLayout
 import org.linphone.LinphoneApplication.Companion.coreContext
@@ -41,10 +39,6 @@ import org.linphone.core.tools.Log
 import org.linphone.databinding.BottomNavBarBinding
 import org.linphone.databinding.MainActivityTopBarBinding
 import org.linphone.ui.main.MainActivity
-import org.linphone.ui.main.chat.fragment.ConversationsListFragmentDirections
-import org.linphone.ui.main.contacts.fragment.ContactsListFragmentDirections
-import org.linphone.ui.main.history.fragment.HistoryListFragmentDirections
-import org.linphone.ui.main.meetings.fragment.MeetingsListFragmentDirections
 import org.linphone.ui.main.viewmodel.AbstractMainViewModel
 import org.linphone.utils.Event
 import org.linphone.utils.SlidingPaneBackPressedCallback
@@ -69,8 +63,6 @@ abstract class AbstractMainFragment : GenericMainFragment() {
     }
 
     protected var lastOnPauseTimestamp: Long = -1L
-
-    private var currentFragmentId: Int = 0
 
     private lateinit var navigationBar: View
 
@@ -141,49 +133,10 @@ abstract class AbstractMainFragment : GenericMainFragment() {
             sharedViewModel.refreshDrawerMenuAccountsListEvent.value = Event(false)
         }
 
-        viewModel.navigateToContactsEvent.observe(viewLifecycleOwner) {
-            it.consume {
-                if (currentFragmentId != R.id.contactsListFragment) {
-                    goToContactsList()
-                }
-            }
-        }
-
-        viewModel.navigateToHistoryEvent.observe(viewLifecycleOwner) {
-            it.consume {
-                if (currentFragmentId != R.id.historyListFragment) {
-                    goToHistoryList()
-                }
-            }
-        }
-
-        viewModel.navigateToConversationsEvent.observe(viewLifecycleOwner) {
-            it.consume {
-                if (currentFragmentId != R.id.conversationsListFragment) {
-                    goToConversationsList()
-                }
-            }
-        }
-
-        viewModel.navigateToMeetingsEvent.observe(viewLifecycleOwner) {
-            it.consume {
-                if (currentFragmentId != R.id.meetingsListFragment) {
-                    goToMeetingsList()
-                }
-            }
-        }
-
         viewModel.defaultAccountChangedEvent.observe(viewLifecycleOwner) {
             it.consume {
                 onDefaultAccountChanged()
             }
-        }
-
-        sharedViewModel.currentlyDisplayedFragment.observe(viewLifecycleOwner) {
-            viewModel.contactsSelected.value = it == R.id.contactsListFragment
-            viewModel.callsSelected.value = it == R.id.historyListFragment
-            viewModel.conversationsSelected.value = it == R.id.conversationsListFragment
-            viewModel.meetingsSelected.value = it == R.id.meetingsListFragment
         }
 
         sharedViewModel.resetMissedCallsCountEvent.observe(viewLifecycleOwner) {
@@ -211,7 +164,7 @@ abstract class AbstractMainFragment : GenericMainFragment() {
 
         initSlidingPane(slidingPane)
         initSearchBar(topBar.search)
-        initNavigation(fragmentId)
+        initTabNavigation(viewModel, fragmentId)
     }
 
     private fun initSlidingPane(slidingPane: SlidingPaneLayout) {
@@ -312,134 +265,6 @@ abstract class AbstractMainFragment : GenericMainFragment() {
     private fun ensureNavigationBarIsVisible() {
         if (::navigationBar.isInitialized) {
             navigationBar.visibility = View.VISIBLE
-        }
-    }
-
-    private fun initNavigation(@IdRes fragmentId: Int) {
-        currentFragmentId = fragmentId
-
-        sharedViewModel.navigateToContactsEvent.observe(viewLifecycleOwner) {
-            it.consume {
-                goToContactsList()
-            }
-        }
-
-        sharedViewModel.navigateToHistoryEvent.observe(viewLifecycleOwner) {
-            it.consume {
-                goToHistoryList()
-            }
-        }
-
-        sharedViewModel.navigateToConversationsEvent.observe(viewLifecycleOwner) {
-            it.consume {
-                goToConversationsList()
-            }
-        }
-
-        sharedViewModel.navigateToMeetingsEvent.observe(viewLifecycleOwner) {
-            it.consume {
-                goToMeetingsList()
-            }
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-
-        if (currentFragmentId > 0) {
-            sharedViewModel.currentlyDisplayedFragment.value = currentFragmentId
-        }
-    }
-
-    private fun goToContactsList() {
-        Log.i("$TAG Navigating to contacts list")
-        when (currentFragmentId) {
-            R.id.conversationsListFragment -> {
-                Log.i("$TAG Leaving conversations list")
-                val action = ConversationsListFragmentDirections.actionConversationsListFragmentToContactsListFragment()
-                navigateTo(action)
-            }
-            R.id.meetingsListFragment -> {
-                Log.i("$TAG Leaving meetings list")
-                val action = MeetingsListFragmentDirections.actionMeetingsListFragmentToContactsListFragment()
-                navigateTo(action)
-            }
-            R.id.historyListFragment -> {
-                Log.i("$TAG Leaving history list")
-                val action = HistoryListFragmentDirections.actionHistoryListFragmentToContactsListFragment()
-                navigateTo(action)
-            }
-        }
-    }
-
-    private fun goToHistoryList() {
-        Log.i("$TAG Navigating to history list")
-        when (currentFragmentId) {
-            R.id.conversationsListFragment -> {
-                Log.i("$TAG Leaving conversations list")
-                val action = ConversationsListFragmentDirections.actionConversationsListFragmentToHistoryListFragment()
-                navigateTo(action)
-            }
-            R.id.contactsListFragment -> {
-                Log.i("$TAG Leaving contacts list")
-                val action = ContactsListFragmentDirections.actionContactsListFragmentToHistoryListFragment()
-                navigateTo(action)
-            }
-            R.id.meetingsListFragment -> {
-                Log.i("$TAG Leaving meetings list")
-                val action = MeetingsListFragmentDirections.actionMeetingsListFragmentToHistoryListFragment()
-                navigateTo(action)
-            }
-        }
-    }
-
-    private fun goToConversationsList() {
-        Log.i("$TAG Navigating to conversations list")
-        when (currentFragmentId) {
-            R.id.contactsListFragment -> {
-                Log.i("$TAG Leaving contacts list")
-                val action = ContactsListFragmentDirections.actionContactsListFragmentToConversationsListFragment()
-                navigateTo(action)
-            }
-            R.id.meetingsListFragment -> {
-                Log.i("$TAG Leaving meetings list")
-                val action = MeetingsListFragmentDirections.actionMeetingsListFragmentToConversationsListFragment()
-                navigateTo(action)
-            }
-            R.id.historyListFragment -> {
-                Log.i("$TAG Leaving history list")
-                val action = HistoryListFragmentDirections.actionHistoryListFragmentToConversationsListFragment()
-                navigateTo(action)
-            }
-        }
-    }
-
-    private fun goToMeetingsList() {
-        Log.i("$TAG Navigating to meetings list")
-        when (currentFragmentId) {
-            R.id.conversationsListFragment -> {
-                Log.i("$TAG Leaving conversations list")
-                val action = ConversationsListFragmentDirections.actionConversationsListFragmentToMeetingsListFragment()
-                navigateTo(action)
-            }
-            R.id.contactsListFragment -> {
-                Log.i("$TAG Leaving contacts list")
-                val action = ContactsListFragmentDirections.actionContactsListFragmentToMeetingsListFragment()
-                navigateTo(action)
-            }
-            R.id.historyListFragment -> {
-                Log.i("$TAG Leaving history list")
-                val action = HistoryListFragmentDirections.actionHistoryListFragmentToMeetingsListFragment()
-                navigateTo(action)
-            }
-        }
-    }
-
-    private fun navigateTo(action: NavDirections) {
-        try {
-            findNavController().navigate(action)
-        } catch (e: Exception) {
-            Log.e("$TAG Failed to navigate: $e")
         }
     }
 }

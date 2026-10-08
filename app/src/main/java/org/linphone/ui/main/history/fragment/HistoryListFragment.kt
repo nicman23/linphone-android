@@ -95,9 +95,7 @@ class HistoryListFragment : AbstractMainFragment() {
     }
 
     override fun onCreateAnimation(transit: Int, enter: Boolean, nextAnim: Int): Animation? {
-        if (findNavController().currentDestination?.id == R.id.startCallFragment ||
-            findNavController().currentDestination?.id == R.id.meetingWaitingRoomFragment
-        ) {
+        if (findNavController().currentDestination?.id == R.id.meetingWaitingRoomFragment) {
             // Holds fragment in place while new fragment slides over it
             return AnimationUtils.loadAnimation(activity, R.anim.hold)
         }
@@ -310,17 +308,13 @@ class HistoryListFragment : AbstractMainFragment() {
         }
 
         binding.setStartCallClickListener {
-            if (findNavController().currentDestination?.id == R.id.historyListFragment) {
-                Log.i("$TAG Navigating to start call fragment")
-                val action =
-                    HistoryListFragmentDirections.actionHistoryListFragmentToStartCallFragment()
-                findNavController().navigate(action)
-            }
+            Log.i("$TAG Navigating to start call tab")
+            listViewModel.navigateToStartCall()
         }
 
         // AbstractMainFragment related
 
-        listViewModel.title.value = getString(R.string.bottom_navigation_calls_label)
+        listViewModel.title.value = getString(R.string.bottom_navigation_history_label)
         setViewModel(listViewModel)
         initViews(
             binding.slidingPaneLayout,

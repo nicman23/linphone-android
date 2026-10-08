@@ -56,7 +56,7 @@ open class AbstractMainViewModel
 
     val callsSelected = MutableLiveData<Boolean>()
 
-    val conversationsSelected = MutableLiveData<Boolean>()
+    val historySelected = MutableLiveData<Boolean>()
 
     val meetingsSelected = MutableLiveData<Boolean>()
 
@@ -77,6 +77,10 @@ open class AbstractMainViewModel
     }
 
     val openDrawerMenuEvent: MutableLiveData<Event<Boolean>> by lazy {
+        MutableLiveData()
+    }
+
+    val navigateToStartCallEvent: MutableLiveData<Event<Boolean>> by lazy {
         MutableLiveData()
     }
 
@@ -264,6 +268,11 @@ open class AbstractMainViewModel
     @UiThread
     fun navigateToContacts() {
         navigateToContactsEvent.value = Event(true)
+    }
+
+    @UiThread
+    fun navigateToStartCall() {
+        navigateToStartCallEvent.value = Event(true)
     }
 
     @UiThread

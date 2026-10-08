@@ -40,7 +40,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.UiThread
 import androidx.car.app.connection.CarConnection
 import androidx.core.app.ActivityCompat
-import androidx.core.os.bundleOf
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -49,7 +48,6 @@ import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
-import androidx.navigation.NavDestination
 import androidx.navigation.NavOptions
 import androidx.navigation.findNavController
 import kotlin.math.max
@@ -77,19 +75,12 @@ import org.linphone.utils.DialogUtils
 import org.linphone.utils.Event
 import org.linphone.utils.FileUtils
 import org.linphone.utils.LinphoneUtils
-import androidx.core.content.edit
 import org.linphone.ui.sso.SingleSignOnActivity
 
 @UiThread
 class MainActivity : GenericActivity() {
     companion object {
         private const val TAG = "[Main Activity]"
-
-        private const val DEFAULT_FRAGMENT_KEY = "default_fragment"
-        private const val CONTACTS_FRAGMENT_ID = 1
-        private const val HISTORY_FRAGMENT_ID = 2
-        private const val CHAT_FRAGMENT_ID = 3
-        private const val MEETINGS_FRAGMENT_ID = 4
 
         private const val REDIRECT_ROLE_REQUEST_CODE = 101
 
@@ -104,20 +95,6 @@ class MainActivity : GenericActivity() {
     private lateinit var sharedViewModel: SharedMainViewModel
 
     private var currentlyDisplayedAuthDialog: Dialog? = null
-
-    private var navigatedToDefaultFragment = false
-
-    private val destinationListener = object : NavController.OnDestinationChangedListener {
-        override fun onDestinationChanged(
-            controller: NavController,
-            destination: NavDestination,
-            arguments: Bundle?
-        ) {
-            Log.i("$TAG Latest visited fragment was restored")
-            navigatedToDefaultFragment = true
-            controller.removeOnDestinationChangedListener(this)
-        }
-    }
 
     private val postNotificationsPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -318,21 +295,17 @@ class MainActivity : GenericActivity() {
             }
         }
 
-        // Wait for latest visited fragment to be displayed before hiding the splashscreen
+        // App always opens on the start call (Calls) tab, which is the nav graph start destination
         binding.root.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
             override fun onPreDraw(): Boolean {
-                return if (navigatedToDefaultFragment) {
-                    Log.i("$TAG Report UI has been fully drawn (TTFD)")
-                    try {
-                        reportFullyDrawn()
-                    } catch (se: SecurityException) {
-                        Log.e("$TAG Security exception when doing reportFullyDrawn(): $se")
-                    }
-                    binding.root.viewTreeObserver.removeOnPreDrawListener(this)
-                    true
-                } else {
-                    false
+                Log.i("$TAG Report UI has been fully drawn (TTFD)")
+                try {
+                    reportFullyDrawn()
+                } catch (se: SecurityException) {
+                    Log.e("$TAG Security exception when doing reportFullyDrawn(): $se")
                 }
+                binding.root.viewTreeObserver.removeOnPreDrawListener(this)
+                return true
             }
         })
         coreContext.bearerAuthenticationRequestedEvent.observe(this) {
@@ -458,8 +431,6 @@ class MainActivity : GenericActivity() {
     override fun onPostCreate(savedInstanceState: Bundle?) {
         super.onPostCreate(savedInstanceState)
 
-        goToLatestVisitedFragment()
-
         // We don't want that intent to be handled upon rotation
         if (savedInstanceState == null && intent != null) {
             Log.d("$TAG savedInstanceState is null but intent isn't, handling it")
@@ -479,28 +450,6 @@ class MainActivity : GenericActivity() {
 
         currentlyDisplayedAuthDialog?.dismiss()
         currentlyDisplayedAuthDialog = null
-
-        val defaultFragmentId = when (sharedViewModel.currentlyDisplayedFragment.value) {
-            R.id.contactsListFragment -> {
-                CONTACTS_FRAGMENT_ID
-            }
-            R.id.historyListFragment -> {
-                HISTORY_FRAGMENT_ID
-            }
-            R.id.conversationsListFragment -> {
-                CHAT_FRAGMENT_ID
-            }
-            R.id.meetingsListFragment -> {
-                MEETINGS_FRAGMENT_ID
-            }
-            else -> { // Default
-                HISTORY_FRAGMENT_ID
-            }
-        }
-        getPreferences(MODE_PRIVATE).edit {
-            putInt(DEFAULT_FRAGMENT_KEY, defaultFragmentId)
-        }
-        Log.i("$TAG Stored [$defaultFragmentId] as default page")
 
         super.onPause()
     }
@@ -559,72 +508,6 @@ class MainActivity : GenericActivity() {
     fun requestCallRedirectionPermissionsAndRole() {
         Log.i("$TAG Requesting READ_PHONE_STATE and READ_PHONE_NUMBERS permissions needed for Call Redirection feature")
         requestReadPhonePermissionsLauncher.launch(arrayOf(Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_PHONE_NUMBERS))
-    }
-
-    private fun goToLatestVisitedFragment() {
-        try {
-            // Prevent navigating to default fragment upon rotation (we only want to do it on first start)
-            if (intent.action == Intent.ACTION_MAIN && intent.type == null && intent.data == null) {
-                if (viewModel.mainIntentHandled) {
-                    Log.d(
-                        "$TAG Main intent without type nor data was already handled, do nothing"
-                    )
-                    navigatedToDefaultFragment = true
-                    return
-                } else {
-                    viewModel.mainIntentHandled = true
-                }
-            }
-
-            val defaultFragmentId = getPreferences(MODE_PRIVATE).getInt(
-                DEFAULT_FRAGMENT_KEY,
-                HISTORY_FRAGMENT_ID
-            )
-            Log.i(
-                "$TAG Trying to navigate to set default destination [$defaultFragmentId]"
-            )
-            try {
-                val navOptionsBuilder = NavOptions.Builder()
-                navOptionsBuilder.setPopUpTo(R.id.historyListFragment, true)
-                navOptionsBuilder.setLaunchSingleTop(true)
-                val navOptions = navOptionsBuilder.build()
-                val args = bundleOf()
-                when (defaultFragmentId) {
-                    CONTACTS_FRAGMENT_ID -> {
-                        findNavController().addOnDestinationChangedListener(destinationListener)
-                        findNavController().navigate(
-                            R.id.contactsListFragment,
-                            args,
-                            navOptions
-                        )
-                    }
-                    CHAT_FRAGMENT_ID -> {
-                        findNavController().addOnDestinationChangedListener(destinationListener)
-                        findNavController().navigate(
-                            R.id.conversationsListFragment,
-                            args,
-                            navOptions
-                        )
-                    }
-                    MEETINGS_FRAGMENT_ID -> {
-                        findNavController().addOnDestinationChangedListener(destinationListener)
-                        findNavController().navigate(
-                            R.id.meetingsListFragment,
-                            args,
-                            navOptions
-                        )
-                    }
-                    else -> {
-                        Log.i("$TAG Default fragment is the same as the latest visited one")
-                        navigatedToDefaultFragment = true
-                    }
-                }
-            } catch (ise: IllegalStateException) {
-                Log.e("$TAG Can't navigate to Conversations fragment: $ise")
-            }
-        } catch (ise: IllegalStateException) {
-            Log.i("$TAG Failed to handle intent: $ise")
-        }
     }
 
     private fun handleIntent(intent: Intent) {
@@ -698,7 +581,7 @@ class MainActivity : GenericActivity() {
                         } else {
                             val navOptionsBuilder = NavOptions.Builder()
                             navOptionsBuilder.setPopUpTo(
-                                findNavController().currentDestination?.id ?: R.id.historyListFragment,
+                                findNavController().currentDestination?.id ?: R.id.startCallFragment,
                                 true
                             )
                             navOptionsBuilder.setLaunchSingleTop(true)

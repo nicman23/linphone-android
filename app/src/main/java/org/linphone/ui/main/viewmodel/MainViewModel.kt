@@ -120,8 +120,6 @@ class MainViewModel
 
     private var accountsFound = -1
 
-    var mainIntentHandled = false
-
     private val alertsList = arrayListOf<Pair<Int, String>>()
 
     private var firstAccountRegistered: Boolean = false

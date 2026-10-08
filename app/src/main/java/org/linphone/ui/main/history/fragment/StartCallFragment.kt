@@ -25,7 +25,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.activity.OnBackPressedCallback
 import androidx.annotation.UiThread
 import androidx.core.view.doOnPreDraw
 import androidx.core.view.isVisible
@@ -34,7 +33,6 @@ import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import org.linphone.LinphoneApplication.Companion.coreContext
-import org.linphone.LinphoneApplication.Companion.corePreferences
 import org.linphone.R
 import org.linphone.core.tools.Log
 import org.linphone.databinding.StartCallFragmentBinding
@@ -61,33 +59,7 @@ class StartCallFragment : GenericAddressPickerFragment() {
 
     override lateinit var viewModel: StartCallViewModel
 
-    private val bottomSheetCallback = object : BottomSheetBehavior.BottomSheetCallback() {
-        override fun onStateChanged(bottomSheet: View, newState: Int) {
-            if (newState == BottomSheetBehavior.STATE_COLLAPSED || newState == BottomSheetBehavior.STATE_HIDDEN) {
-                viewModel.isNumpadVisible.value = false
-            }
-        }
-
-        override fun onSlide(bottomSheet: View, slideOffset: Float) { }
-    }
-
-    private val backPressedCallback = object : OnBackPressedCallback(true) {
-        override fun handleOnBackPressed() {
-            val actionsBottomSheetBehavior = BottomSheetBehavior.from(binding.numpadLayout.root)
-            if (actionsBottomSheetBehavior.state != BottomSheetBehavior.STATE_COLLAPSED) {
-                actionsBottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
-                return
-            }
-
-            Log.i("$TAG Back gesture/click detected, no bottom sheet is expanded, going back")
-            isEnabled = false
-            try {
-                requireActivity().onBackPressedDispatcher.onBackPressed()
-            } catch (ise: IllegalStateException) {
-                Log.w("$TAG Can't go back: $ise")
-            }
-        }
-    }
+    private var keyboardVisible = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -127,12 +99,7 @@ class StartCallFragment : GenericAddressPickerFragment() {
             navViewModel.openDrawerMenu()
         }
 
-        binding.setHideNumpadClickListener {
-            viewModel.hideNumpad()
-        }
-
         binding.setAskForGroupCallSubjectClickListener {
-            viewModel.hideNumpad()
             showGroupCallSubjectDialog()
         }
 
@@ -198,9 +165,16 @@ class StartCallFragment : GenericAddressPickerFragment() {
             }
         }
 
+        // Dialpad can't be swiped, tapped or backed away: it only makes room for the keyboard
+        // and for the group call participants selection
         val bottomSheetBehavior = BottomSheetBehavior.from(binding.numpadLayout.root)
+        bottomSheetBehavior.isDraggable = false
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
-        bottomSheetBehavior.addBottomSheetCallback(bottomSheetCallback)
+        binding.numpadLayout.handle.visibility = View.INVISIBLE
+
+        viewModel.multipleSelectionMode.observe(viewLifecycleOwner) {
+            updateNumpadVisibility()
+        }
 
         viewModel.isNumpadVisible.observe(viewLifecycleOwner) { visible ->
             if (visible) {
@@ -216,32 +190,22 @@ class StartCallFragment : GenericAddressPickerFragment() {
             }
         }
 
-        binding.root.setKeyboardInsetListener { keyboardVisible ->
-            if (keyboardVisible) {
-                viewModel.isNumpadVisible.value = false
-            }
+        binding.root.setKeyboardInsetListener { visible ->
+            keyboardVisible = visible
+            updateNumpadVisibility()
             val portraitOrientation = resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE
             binding.bottomNavBar.root.isVisible = !portraitOrientation || !keyboardVisible
         }
-
-        requireActivity().onBackPressedDispatcher.addCallback(
-            viewLifecycleOwner,
-            backPressedCallback
-        )
     }
 
     override fun onResume() {
         super.onResume()
 
-        if (corePreferences.automaticallyShowDialpad) {
-            viewModel.isNumpadVisible.value = true
-        }
+        updateNumpadVisibility()
     }
 
-    override fun onPause() {
-        super.onPause()
-
-        viewModel.isNumpadVisible.value = false
+    private fun updateNumpadVisibility() {
+        viewModel.isNumpadVisible.value = !keyboardVisible && viewModel.multipleSelectionMode.value != true
     }
 
     private fun showGroupCallSubjectDialog() {

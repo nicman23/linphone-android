@@ -24,6 +24,7 @@ import androidx.annotation.WorkerThread
 import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.linphone.LinphoneApplication.Companion.coreContext
@@ -45,6 +46,8 @@ class StartCallViewModel
     constructor() : AddressSelectionViewModel() {
     companion object {
         private const val TAG = "[Start Call ViewModel]"
+
+        private const val SEARCH_DEBOUNCE_MS = 500L
     }
 
     val title = MutableLiveData<String>()
@@ -198,6 +201,22 @@ class StartCallViewModel
         viewModelScope.launch {
             delay(100)
             isNumpadVisible.value = !showKeyboard
+        }
+    }
+
+    // Wait until dialing/typing stops for 0.5 s before searching contacts (clearing the field searches right away)
+    private var searchDebounceJob: Job? = null
+
+    @UiThread
+    override fun applyFilter(filter: String) {
+        searchDebounceJob?.cancel()
+        if (filter.isEmpty()) {
+            super.applyFilter(filter)
+            return
+        }
+        searchDebounceJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MS)
+            super.applyFilter(filter)
         }
     }
 

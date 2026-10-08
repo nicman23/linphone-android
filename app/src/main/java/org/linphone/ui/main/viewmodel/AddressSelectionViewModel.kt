@@ -268,7 +268,7 @@ abstract class AddressSelectionViewModel
     }
 
     @UiThread
-    fun applyFilter(filter: String) {
+    open fun applyFilter(filter: String) {
         coreContext.postOnCoreThread {
             applyFilter(
                 filter,

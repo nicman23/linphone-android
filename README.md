@@ -1,18 +1,40 @@
+# Linphone Android — call-focused fork
 
-[![pipeline status](https://gitlab.linphone.org/BC/public/linphone-android/badges/master/pipeline.svg)](https://gitlab.linphone.org/BC/public/linphone-android/commits/master) 
-[![weblate status](https://weblate.linphone.org/widget/linphone/linphone-android-6-0/status-badge.png)](https://weblate.linphone.org/engage/linphone/)
+This is a personal fork of [BelledonneCommunications/linphone-android](https://github.com/BelledonneCommunications/linphone-android), tuned for using Linphone mainly as a phone dialer. Upstream is merged in weekly; everything below is what differs from upstream.
+
+| Calls tab (default launch screen) | History tab |
+|:---:|:---:|
+| <img src="docs/screenshots/calls-tab.png" width="270" alt="Calls tab: New call screen with the always-open dialpad"> | <img src="docs/screenshots/history-tab.png" width="270" alt="History tab: call history list"> |
+
+### Changes from upstream
+
+**Navigation**
+- The bottom bar is **Contacts · Calls · History · Meetings**. The Conversations tab is gone (chat still opens from notifications and contacts).
+- **Calls** is the *New call* screen (search + dialpad) and the app always opens on it; it no longer reopens the last visited tab.
+- **History** is upstream's call history list, with the missed calls badge. Its "new call" button switches to the Calls tab.
+
+**Dialpad**
+- On the Calls tab the dialpad can't be dismissed: no swipe-down, no handle, back doesn't close it. It only steps aside while the keyboard is open or while picking group call participants.
+- Contact search waits until you stop dialing for **0.5 s** instead of searching on every digit (Calls tab, and the in-call new call / transfer screens).
+- The whole dialpad grid is touchable: each button's touch area includes the gaps around it, while the buttons look the same. Also applies to the in-call DTMF pad.
+
+**Incoming calls**
+- **Volume up or down answers** the call; **power declines** it, on the incoming call screen. Android swallows the volume key-press while a call rings, so the call is answered on key release. Apps can't see the power key, so declining relies on the screen turning off while this screen (which keeps the display on) is shown.
+- The incoming call screen now also opens when Linphone is already on screen; upstream only shows a heads-up banner in that case.
+
+**Merged upstream pull requests**
+- [#2497](https://github.com/BelledonneCommunications/linphone-android/pull/2497) — dialing with hardware numpad keys (by Tobias Diendorfer).
+
+**Build**
+- `versionCode` / `versionName` stay at upstream's values in git; release builds set them at build time (`<upstream version>-fork.<versionCode>`).
+
+---
 
 Linphone is an open source softphone for voice and video over IP calling and instant messaging.
 
 It is fully SIP-based, for all calling, presence and IM features.
 
 General description is available from [linphone web site](https://linphone.org).
-
-### How to get it
-
-[<img src="metadata/google-play-badge.png" height="60" alt="Get it on Google Play">](https://play.google.com/store/apps/details?id=org.linphone)[<img src="metadata/f-droid-badge.png" height="60" alt="Get it on F-Droid">](https://f-droid.org/en/packages/org.linphone/)
-
-You can also download APKs signed with our key from [our website](https://download.linphone.org/releases/android/?C=M;O=D).
 
 ### License
 
@@ -31,14 +53,6 @@ Linphone is dual licensed, and is available either :
 - Linphone public wiki : https://wiki.linphone.org/xwiki/wiki/public/view/Linphone/
 
 - Tutorials : https://gitlab.linphone.org/BC/public/tutorials/-/tree/master/android/kotlin
-
-# What's new
-
-6.0.0 release is a completely new version, designed with UX/UI experts and marks a turning point in design, features, and user experience. The improvements make this version smoother and simpler for both developers and users.
-
-You can take a look at the [CHANGELOG.md](CHANGELOG.md) file for a non-exhaustive list of changes of this new version and of the newly added features, the most exciting ones being the improved fluidity, a real multi-accounts support and asymmetrical video in calls.
-
-This release only works on Android OS 9.0 and newer.
 
 # Building the app
 
@@ -102,12 +116,6 @@ Also check you have built the SDK for the right CPU architecture using the `-DLI
 
 ## Troubleshooting
 
-### Behavior issue
-
-When submitting an issue on our [Github repository](https://github.com/BelledonneCommunications/linphone-android), please follow the template and attach the matching library logs.
-
-Starting 6.0.0 release, logs are always enabled and stored locally on the device, you can clear them/upload them securely on our server for sharing by going into the Help → Troubleshooting page.
-
 ### Native crash
 
 First of all, to be able to get a symbolized stack trace, you need the debug version of our libraries.
@@ -161,22 +169,3 @@ We have archived our own, so you can build your linphone-android application and
 If you delete it, you won't receive any push notification.
 
 If you have your own push server, replace this file by yours.
-
-## Translations
-
-We no longer use transifex for the translation process, instead we have deployed our own instance of [Weblate](https://weblate.linphone.org/).
-
-Due to the full app rewrite we can't re-use previous translations, so we'll be very happy if you want to contribute.
-
-<a href="https://weblate.linphone.org/engage/linphone/">
-<img src="https://weblate.linphone.org/widget/linphone/linphone-android-6-2/multi-auto.svg" alt="Translation status" />
-</a>
-
-# CONTRIBUTIONS
-
-In order to submit a patch for inclusion in linphone's source code:
-
-1. First make sure your patch applies to latest git sources before submitting: patches made to old versions can't and won't be merged.
-2. Fill out and send us an email with the link of pull-request and the [Contributor Agreement](https://linphone.org/sites/default/files/bc-contributor-agreement_0.pdf) for your patch to be included in the git tree.
-
-The goal of this agreement to grant us peaceful exercise of our rights on the linphone source code, while not losing your rights on your contribution.
